@@ -21,14 +21,13 @@ def generate_mrc(trace_filename):
 			print(steps)
 			steps+=1
 
-	stack_dist_counts = counterstack.get_stack_distance_counts()
+	bins, values = counterstack.get_stack_distance_counts()
 
+	# Print all the counts
 	pp = pprint.PrettyPrinter(indent=4)
-	pp.pprint(stack_dist_counts)
-
-	print(np.sum(stack_dist_counts.values()))
-
-	bins, vals = map(list, zip(*sorted(stack_dist_counts.items(), key=lambda t: t[0])))
+	pp.pprint(zip(bins, values))
+	# Print the total cumulative sum of all counts
+	print(np.sum(values))
 
 	# Carry any fully negative buckets over
 	# neg = 0
@@ -48,7 +47,7 @@ def generate_mrc(trace_filename):
 	# 	vals.append(total/float(steps))
 
 	# vals = np.cumsum(stack_dist_counts.values())/float(steps)
-	vals = np.cumsum(stack_dist_counts.values())
+	vals = np.cumsum(values)
 
 	plt.plot(bins, vals)
 	# plt.hist(vals, bins=bins, histtype='step', cumulative=True)# , bins=stack_dist_counts.keys()) # plt.hist#, histtype='step')#, weights=np.zeros_like(stack_dist_counts.values()) + 1./(np.sum(np.array(stack_dist_counts.values()))))

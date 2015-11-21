@@ -116,7 +116,11 @@ class CounterStack(object):
 				counter.add_symbol(symbol)
 
 	def get_stack_distance_counts(self):
-		return self._stack_dist_counts
+		# Sort bin/value pairs by bin number
+		# Multiply bins by delta (downsample rate) according to algorithm
+		bins, values = map(list, zip(*sorted(self._stack_dist_counts.items(), key=lambda t: t[0])))
+		bins = [x*self._downsample_rate for x in bins]
+		return bins, values
 
 	def is_observable_time(self):
 		return self._current_step == 0 or (self._current_step+1) % self._downsample_rate == 0
