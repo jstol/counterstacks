@@ -10,7 +10,8 @@ from cs import CounterStack
 
 def generate_mrc(trace_filename):
 	# Read in file
-	counterstack = CounterStack(500)
+	counterstack = CounterStack(1000)
+	#counterstack = CounterStack(30)
 	steps = 1
 	with open(trace_filename, 'r') as f:
 		for line in f:
@@ -46,9 +47,11 @@ def generate_mrc(trace_filename):
 
 	# 	vals.append(total/float(steps))
 
-	vals = np.cumsum(stack_dist_counts.values())/float(steps)
+	# vals = np.cumsum(stack_dist_counts.values())/float(steps)
+	vals = np.cumsum(stack_dist_counts.values())
 
 	plt.plot(bins, vals)
+	# plt.hist(vals, bins=bins, histtype='step', cumulative=True)# , bins=stack_dist_counts.keys()) # plt.hist#, histtype='step')#, weights=np.zeros_like(stack_dist_counts.values()) + 1./(np.sum(np.array(stack_dist_counts.values()))))
 	plt.title("Hit Ratio Chart")
 	plt.xlabel("Cache Size (number of blocks)")
 	plt.ylabel("Hit Ratio")
@@ -58,5 +61,5 @@ def generate_mrc(trace_filename):
 
 if __name__ == '__main__':
 	generate_mrc('traces/web/web_0_clean.csv')
-	# generate_mrc('traces/normal_137979.trace')
+	#generate_mrc('traces/normal_137979.trace')
 
