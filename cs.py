@@ -3,117 +3,78 @@
 from __future__ import absolute_import, print_function, unicode_literals
 """Script for generating MRCs from stack distances"""
 import numpy as np
-from hyperloglog.hll import HyperLogLog
-
-class _IdealCounter(object):
-
-	def __init__(self):
-		self._set = set()
-
-	def add_symbol(self, symbol):
-		self._set.add(symbol)
-	
-	def process_symbol(self, symbol):
-		self.add_symbol(symbol)
-		return len(self._set) # return the exact number of unique elements seen
-
-class _HLLCounter(object):
-
-	def __init__(self, hll_error=0.01):
-		self._set = HyperLogLog(hll_error)
-
-	def add_symbol(self, symbol):
-		self._set.add(symbol)
-	
-	def process_symbol(self, symbol):
-		self.add_symbol(symbol)
-		return len(self._set) # return the predicted number of unique elements seen
+from hyperloglog.shll import SlidingHyperLogLog
 
 class CounterStack(object):
-
+	"""Class that takes a stream of input symbols and keeps track of stack distances"""
 	def __init__(self, downsample_rate=10000):
-		self._counters = []
-		self._countmatrix = None
 		self._lastcounts = None
 		self._downsample_rate = downsample_rate
 		self._stack_dist_counts = {}
-		self._current_step = 0
+		self._current_step = None
+		self._shll = SlidingHyperLogLog(0.3, float("inf"))
 
 	def process_sequence_symbol(self, symbol):
-		self._current_step += 1
+		# Current step starts at 0
+		self._current_step = 0 if self._current_step is None else self._current_step+1
+		# Symbol count starts at 1
+		self._symbol_count = self._current_step + 1
+
+		# Add the current symbol to the sliding HLL counter
+		self._shll.add(self._current_step, symbol)
 
 		# Sample the counters if this is an observable time step (if it is a multiple of "d", the downsample rate)
 		if self.is_observable_time():
-			# Add a new counter for the current symbol
-			c = _IdealCounter()
-			self._counters.append(c)
-
 			if self.is_empty():
-				# self._countmatrix = np.array([[c.process_symbol(symbol)]])
-				self._lastcounts = np.array([[0]])
-				new_column = np.array([[c.process_symbol(symbol)]])
+				self._lastcounts = np.zeros((1, 1))
 
 			else:
 				# Make a new column vector containing the most recent unique count for every counter
-				new_column = np.array([[counter.process_symbol(symbol)] for counter in self._counters])
-				# Add the new column to the counterstack (with zeros leading up to the current counters count)
-				# self._countmatrix = np.append(self._countmatrix, np.zeros((1, self._countmatrix.shape[1])), axis=0)
-				# self._countmatrix = np.append(self._countmatrix, new_column, axis=1)
-				self._lastcounts = np.append(self._lastcounts, np.array([0]))
-			
-			# TEMP
+				self._lastcounts = np.vstack((self._lastcounts, np.zeros((1, 1))))
+
+			# Note, if doing pruning - this won't work. `card_wlist` returns multiple sliding HLL results at once (wlist = window list). Need to use plain `card` method.
+			# Probably have to wrap it in new class where each object shares a _shll, and then either returns own _shll.card(time, window) or the _shll.card(time, window) with another counter's window
+			# Note: "timestamp" is the end of where we want to figure out the cardinality (# of unique elements), window is how far to go back
+			# https://github.com/svpcom/hyperloglog/blob/master/hyperloglog/shll.py#L140
+
+			# Get list of unique counts, given an interval (xrange) of windows. Stack as col vector
+			new_counts = self._shll.card_wlist(self._symbol_count, xrange(1, self._current_step+self._downsample_rate, self._downsample_rate))
+			new_counts_column = np.array(new_counts)[::-1].reshape(-1,1)
+
 			# Make a matrix containing only the last two rows
-			mini_mtx = np.c_[self._lastcounts, new_column]
-			self._countmatrix = mini_mtx
-			# ------
+			countmatrix = np.c_[self._lastcounts, new_counts_column]
 
 			# Update the stack distance histogram
-			# delta x
-			# delta_x = np.diff(np.c_[np.zeros((self._countmatrix.shape[0], 1)), self._countmatrix])
-			
-			# TEMP
-			delta_x = np.diff(mini_mtx)
-			# ------
+			# Compute differences between the last two columns
+			delta_x = np.diff(countmatrix)
 
-
-			# delta y
+			# Compute change between the change in the counters (delta Y)
 			delta_y = np.diff(np.r_[np.zeros((1, delta_x.shape[1])), delta_x], axis=0)
-			## delta_y[np.diag_indices_from(delta_y)] = self._downsample_rate - delta_x[np.diag_indices_from(delta_x)]
-			# delta_y[np.diag_indices_from(delta_y)] = 1 - delta_x[np.diag_indices_from(delta_x)]
-			## delta_y[np.diag_indices_from(delta_y)] = 0
 			
-			# TEMP
-			# Set the last element in delta y to 1-delta_x
+			# Set the last element in delta y to 1-delta_x (according to the algorithm)
 			delta_y[-1,-1] = 1 - delta_x[-1,-1]
-			# ------
+			delta_y_last_col = delta_y[:,-1:] # Not sure if this is needed anymore since delta_y is probably just 1 col now, but just to be safe
+			c_last_col = countmatrix[:,-1:]
 
-			delta_y_last_col = delta_y[:,-1:]
-			c_last_col = self._countmatrix[:,-1:]
-
+			# Go across all rows
 			for row_i in xrange(delta_y.shape[0]):
+				# Get the stack distance count from delta y
 				stack_dist_count = delta_y_last_col.item(row_i, 0)
+				# Get the stack distance from the counterstacks "matrix" (only need last two col of it)
 				stack_dist = c_last_col.item(row_i, 0)
 
-				# Only record stack distances that aren't 0 (to save memory)
+				# Only record stack distances that don't have a count of 0 (to save memory)
 				if stack_dist_count == 0:
 					continue
 
+				# We record the stack distance/the downsample rate, 'd' (according to the algorithm)
 				if np.ceil(stack_dist/float(self._downsample_rate)) not in self._stack_dist_counts:
-				# if stack_dist not in self._stack_dist_counts:
 					self._stack_dist_counts[np.ceil(stack_dist/float(self._downsample_rate))] = stack_dist_count
-					#self._stack_dist_counts[stack_dist] = stack_dist_count
 				else:
 					self._stack_dist_counts[np.ceil(stack_dist/float(self._downsample_rate))] += stack_dist_count
-					#self._stack_dist_counts[stack_dist] += stack_dist_count
 		
-			# TEMP
-			self._lastcounts = new_column
-			# -----
-
-		# Otherwise, just update the counters
-		else:
-			for counter in self._counters:
-				counter.add_symbol(symbol)
+			# Record the newest column of counter values for the next round
+			self._lastcounts = new_counts_column
 
 	def get_stack_distance_counts(self):
 		# Sort bin/value pairs by bin number
@@ -123,8 +84,7 @@ class CounterStack(object):
 		return bins, values
 
 	def is_observable_time(self):
-		return self._current_step == 0 or (self._current_step+1) % self._downsample_rate == 0
+		return self._current_step % self._downsample_rate == 0
 
 	def is_empty(self):
-		# return self._countmatrix is None or len(self._countmatrix) == 0
 		return self._lastcounts is None or len(self._lastcounts) == 0
