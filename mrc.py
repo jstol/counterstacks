@@ -10,7 +10,7 @@ from cs import CounterStack
 
 # In bytes
 _BLOCK_SIZE = 4096
-trace = 'traces/wdev/wdev_clean.csv' # also available: 'traces/web/web_clean.csv', 'traces/normal_137979.trace'
+trace = 'traces/wdev/wdev_clean.csv' # also available: 'traces/web/web_clean.csv', 'traces/normal_137979.txt'
 
 def generate_mrc(trace_filename):
 	# Set the downsample rate
