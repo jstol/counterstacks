@@ -6,22 +6,23 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pprint, csv
 
-from cs import CounterStack
+from cs_prune import CounterStack_prune
 
 # In bytes
 _BLOCK_SIZE = 4096
 trace = 'traces/wdev/wdev_clean.csv' # also available: 'traces/web/web_clean.csv', 'traces/normal_137979.txt'
 
-def generate_mrc(trace_filename):
+def generate_mrc_prune(trace_filename):
 	# Set the downsample rate
 	d = 100
+	pruning_delta = 0.2
 	# Create the counterstack and read in the file, feeding it the symbols
-	counterstack = CounterStack(d)
+	counterstack = CounterStack_prune(d)
 	steps = 1
 	with open(trace_filename, 'r') as f:
 		for line in f:
 			symbol = line.rstrip()
-			counterstack.process_sequence_symbol(symbol)
+			counterstack.process_sequence_symbol(symbol,pruning_delta)
 
 			if steps % d == 0:
 				print(steps)
@@ -38,8 +39,10 @@ def generate_mrc(trace_filename):
 
 	# Make bins in terms of GB
 	bins = [bin*_BLOCK_SIZE/float(1000000000) for bin in bins]
-	print ("total size in bytes")
+
+	print("total size in bytes")
 	print(counterstack.total_size())
+
 	# Carry any fully negative buckets over to the next non-negative bucket (to make the resulting graph monotonically increasing)
 	neg = 0
 	total = 0
@@ -62,12 +65,12 @@ def generate_mrc(trace_filename):
 
 	plt.plot(bins, cum_vals)
 	# plt.hist(vals, bins=bins, histtype='step', cumulative=True)# , bins=stack_dist_counts.keys()) # plt.hist#, histtype='step')#, weights=np.zeros_like(stack_dist_counts.values()) + 1./(np.sum(np.array(stack_dist_counts.values()))))
-	plt.title("MRC")
+	plt.title("MRC-Pruned")
 	plt.xlabel("Cache Size (GB)")
 	plt.ylabel("Miss Ratio")
 	plt.ylim(0,1)
 	plt.yticks([0.00, 0.25, 0.50, 0.75, 1.00])
-	plt.savefig('MRC_web')
+	plt.savefig('MRC_web_' + str(pruning_delta) + '.png')
 	plt.show()
 
 	raw_input('Press enter to continue...')
@@ -81,4 +84,4 @@ def generate_mrc(trace_filename):
 			writer.writerow([key, value])
 
 if __name__ == '__main__':
-	generate_mrc(trace)
+	generate_mrc_prune(trace)
