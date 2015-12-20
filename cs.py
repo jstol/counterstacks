@@ -34,11 +34,6 @@ class CounterStack(object):
 				# Make a new column vector containing the most recent unique count for every counter
 				self._lastcounts = np.vstack((self._lastcounts, np.zeros((1, 1))))
 
-			# Note, if doing pruning - this won't work. `card_wlist` returns multiple sliding HLL results at once (wlist = window list). Need to use plain `card` method.
-			# Probably have to wrap it in new class where each object shares a _shll, and then either returns own _shll.card(time, window) or the _shll.card(time, window) with another counter's window
-			# Note: "timestamp" is the end of where we want to figure out the cardinality (# of unique elements), window is how far to go back
-			# https://github.com/svpcom/hyperloglog/blob/master/hyperloglog/shll.py#L140
-
 			# Get list of unique counts, given an interval (xrange) of windows. Stack as col vector
 			new_counts = self._shll.card_wlist(self._symbol_count, xrange(1, self._current_step+self._downsample_rate, self._downsample_rate))
 			new_counts_column = np.array(new_counts)[::-1].reshape(-1,1)

@@ -5,28 +5,38 @@ from __future__ import absolute_import, print_function, unicode_literals
 import matplotlib.pyplot as plt
 import numpy as np
 import pprint, csv
+import sys
+from datetime import datetime
 
 from cs_prune import CounterStack_prune
 
 # In bytes
 _BLOCK_SIZE = 4096
-trace = 'traces/wdev/wdev_clean.csv' # also available: 'traces/web/web_clean.csv', 'traces/normal_137979.txt'
-
+trace = sys.argv[1] #'traces/wdev/wdev_clean.csv' # also available: 'traces/web/web_clean.csv', 'traces/normal_137979.txt'
+trace_name = sys.argv[2]
+starttime = datetime.now()
 def generate_mrc_prune(trace_filename):
 	# Set the downsample rate
-	d = 100
-	pruning_delta = 0.2
+	downsample_rate = int(sys.argv[3])
+	pruning_delta = float(sys.argv[4])
 	# Create the counterstack and read in the file, feeding it the symbols
-	counterstack = CounterStack_prune(d)
+	counterstack = CounterStack_prune(downsample_rate)
 	steps = 1
 	with open(trace_filename, 'r') as f:
 		for line in f:
 			symbol = line.rstrip()
 			counterstack.process_sequence_symbol(symbol,pruning_delta)
 
-			if steps % d == 0:
+			if steps % downsample_rate == 0:
 				print(steps)
 			steps+=1
+
+	print("total time taken to generate curve")
+	totaltime = datetime.now() - starttime
+	print (totaltime)
+	totalsize = counterstack.total_size()
+	print("total size in bytes")
+	print(totalsize)
 
 	# Get the histogram of stack distances
 	bins, values = counterstack.get_stack_distance_counts()
@@ -40,8 +50,7 @@ def generate_mrc_prune(trace_filename):
 	# Make bins in terms of GB
 	bins = [bin*_BLOCK_SIZE/float(1000000000) for bin in bins]
 
-	print("total size in bytes")
-	print(counterstack.total_size())
+
 
 	# Carry any fully negative buckets over to the next non-negative bucket (to make the resulting graph monotonically increasing)
 	neg = 0
@@ -65,23 +74,29 @@ def generate_mrc_prune(trace_filename):
 
 	plt.plot(bins, cum_vals)
 	# plt.hist(vals, bins=bins, histtype='step', cumulative=True)# , bins=stack_dist_counts.keys()) # plt.hist#, histtype='step')#, weights=np.zeros_like(stack_dist_counts.values()) + 1./(np.sum(np.array(stack_dist_counts.values()))))
-	plt.title("MRC-Pruned")
+	plt.title(trace_name + "_MRC-Pruned-delta__ " + str(pruning_delta) +"_sample_" + str(downsample_rate))
 	plt.xlabel("Cache Size (GB)")
 	plt.ylabel("Miss Ratio")
 	plt.ylim(0,1)
 	plt.yticks([0.00, 0.25, 0.50, 0.75, 1.00])
-	plt.savefig('MRC_web_' + str(pruning_delta) + '.png')
-	plt.show()
+	plt.savefig(trace_name + '_MRC_delta_' + str(pruning_delta) + '_sample_' + str(downsample_rate)+'.png')
+	#plt.show()
 
-	raw_input('Press enter to continue...')
+	csv_title = trace_name+'__delta_' + str(pruning_delta) + '_sample_' + str(downsample_rate)
 
 	# Write results to a csv file
-	with open('mrc_result.csv', 'w') as csvfile:
+	with open(trace_name + '_mrc_result_delta_'+ str(pruning_delta) + '_sample_' + str(downsample_rate)+'.csv', 'wb') as csvfile:
 		# fieldnames = ['bucket', 'cumulative_cache_size']
 		writer = csv.writer(csvfile)
 		# writer.writeheader()
 		for key, value in dict(zip(bins, cum_vals)).items():
 			writer.writerow([key, value])
+
+	with open('performance.csv', 'a') as csvfile:
+		# fieldnames = ['bucket', 'cumulative_cache_size']
+		writer = csv.writer(csvfile)
+		# writer.writeheader()
+		writer.writerow([csv_title, totaltime, totalsize])
 
 if __name__ == '__main__':
 	generate_mrc_prune(trace)

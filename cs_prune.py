@@ -49,8 +49,7 @@ class CounterStack_prune(object):
 
 			index = 0
 			pruning_p = 1 - pruning_param
-			print ("before prune")
-			print(len(new_counts_column))
+
 
 			new_counts_pruned = np.transpose(new_counts_column)
 
@@ -78,9 +77,6 @@ class CounterStack_prune(object):
 							index+=-1
 						index += 1
 
-
-			print ("after prune")
-			print(len(new_counts_column))
 
 			# Make a matrix containing only the last two rows
 			countmatrix = np.c_[self._lastcounts, new_counts_column]
@@ -132,4 +128,4 @@ class CounterStack_prune(object):
 		return self._lastcounts is None or len(self._lastcounts) == 0
 
 	def total_size(self):
-		return(sys.getsizeof(self._stack_dist_counts))
+		return(sys.getsizeof(self._countmatrix))
