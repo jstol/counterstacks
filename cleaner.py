@@ -3,9 +3,11 @@
 from __future__ import absolute_import, print_function, unicode_literals
 import sys
 
-trace_type = 'web'
+trace_type = 'proj'
 
-files = ["traces/{0}/{0}_0.csv", "traces/{0}/{0}_1.csv", "traces/{0}/{0}_2.csv", "traces/{0}/{0}_3.csv"]
+files = ["traces/{0}/{0}_0.csv", "traces/{0}/{0}_1.csv", "traces/{0}/{0}_2.csv", "traces/{0}/{0}_3.csv", "traces/{0}/{0}_4.csv"]
+#files = ["traces/{0}/{0}_0.csv", "traces/{0}/{0}_1.csv"]
+
 files = [file_name.format(trace_type) for file_name in files]
 
 _BLOCK_SIZE = 4096
