@@ -1,19 +1,22 @@
 #!/usr/bin/env python2.7
 # -*- coding: utf8 -*-
 from __future__ import absolute_import, print_function, unicode_literals
-import sys
-
-trace_type = 'proj'
-
-files = ["traces/{0}/{0}_0.csv", "traces/{0}/{0}_1.csv", "traces/{0}/{0}_2.csv", "traces/{0}/{0}_3.csv", "traces/{0}/{0}_4.csv"]
-#files = ["traces/{0}/{0}_0.csv", "traces/{0}/{0}_1.csv"]
-
-files = [file_name.format(trace_type) for file_name in files]
+import sys, argparse
 
 _BLOCK_SIZE = 4096
 
-times = {}
+# Read in command-line arguments
+parser = argparse.ArgumentParser()
+parser.add_argument('-t', '--traces' nargs='+', dest='traces', type=str, required=True)
+parser.add_argument('-o', '--output', dest='output_file', type=str, required=False, default="traces/{0}/{0}_clean.csv")
+args = parser.parse_args()
 
+files = args.traces
+trace_type = args.trace_type
+dest = args.output_file
+
+# Format the MSR files
+times = {}
 for name in files:
 	with open(name, 'r') as original:
 		for line in original:
@@ -31,9 +34,9 @@ for name in files:
 				for offset in xrange(num_blocks):
 					times[time].append(addr+(offset*_BLOCK_SIZE))
 
+# Sort and write to a new, consolidated file
 sorted_times = sorted(times)
-
-with open("traces/{0}/{0}_clean.csv".format(trace_type), 'w') as new:
+with open(output_file, 'w') as new:
 	for t in sorted_times:
 		addresses = times[t]
 		for addr in addresses:
