@@ -8,12 +8,11 @@ _BLOCK_SIZE = 4096
 # Read in command-line arguments
 parser = argparse.ArgumentParser()
 parser.add_argument('-t', '--traces' nargs='+', dest='traces', type=str, required=True)
-parser.add_argument('-o', '--output', dest='output_file', type=str, required=False, default="traces/{0}/{0}_clean.csv")
+parser.add_argument('-o', '--output', dest='output_file', type=str, required=True)
 args = parser.parse_args()
 
 files = args.traces
-trace_type = args.trace_type
-dest = args.output_file
+output_file = args.output_file
 
 # Format the MSR files
 times = {}
